@@ -1,2 +1,2 @@
 rose: rose.c
-	$(CC) rose.c -o rose -Wall -Wextra -pedantic -std=c99
+	$(CC) rose.c -o bin/rose -Wall -Wextra -pedantic -std=c99
