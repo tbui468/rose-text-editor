@@ -1,3 +1,5 @@
+//Step 54: review this (and maybe a few steps before) to remember what I did
+//don't worry too much about understanding everything, just try to finish the 180 or so steps
 //Step 55: A Line Viewer
 
 /*** includes ***/
@@ -129,25 +131,6 @@ int editorReadKey() {
     }else{
         return c;
     }
-/*
-    if(E.mode == COMMAND) {
-        switch(c) {
-            case 'h': return ARROW_LEFT;
-            case 'j': return ARROW_DOWN;
-            case 'k': return ARROW_UP;
-            case 'l': return ARROW_RIGHT;
-            case 'H': return SCREEN_TOP;
-            case 'M': return SCREEN_CENTER;
-            case 'L': return SCREEN_BOTTOM;
-            case '0': return SCREEN_LEFT;
-            case '$': return SCREEN_RIGHT;
-        }        
-    }else if(E.mode == INSERT) {
-
-    }else{ //E.mode == COMMAND_LINE
-        return c;
-    }*/
-
 }
 
 int getCursorPosition(int* rows, int* cols) {
@@ -239,13 +222,6 @@ void editorDrawRows(struct abuf* ab) {
     abAppend(ab, "\x1b[K", 3);
 
     abAppend(ab, "\r", 1);
-    if(E.mode == INSERT) {
-        abAppend(ab, "-- INSERT --", 12);
-    }else if(E.mode == COMMAND){
-        //do something???
-    }else if(E.mode == COMMAND_LINE) {
-        abAppend(ab, ":", 1);
-    }
 
     abAppend(ab, "\r\n", 2);
     abAppend(ab, "\x1b[K", 3);
@@ -303,45 +279,28 @@ void editorMoveCursor(int key) {
     }
 }
 
-void editorSwitchMode(int newMode) {
-    E.mode = newMode;
-}
-
 void editorProcessKeypress() {
     int c = editorReadKey();
-    if(E.mode == COMMAND) {
-        switch(c) {
-            case CTRL_KEY('q'):
-                write(STDOUT_FILENO, "\x1b[48;2;0;0;0m", 13);
-                write(STDOUT_FILENO, "\x1b[2J", 4);
-                write(STDOUT_FILENO, "\x1b[H", 3);
-                exit(0);
-                break;
-            case ':': editorSwitchMode(COMMAND_LINE); break;
-            case 'i': editorSwitchMode(INSERT); break;
-            case ARROW_LEFT:
-            case ARROW_RIGHT:
-            case ARROW_UP:
-            case ARROW_DOWN:
-            case SCREEN_TOP:
-            case SCREEN_CENTER:
-            case SCREEN_BOTTOM:
-            case SCREEN_LEFT:
-            case SCREEN_RIGHT:
-                editorMoveCursor(c);
-                break;
+    switch(c) {
+        case CTRL_KEY('q'):
+            write(STDOUT_FILENO, "\x1b[48;2;0;0;0m", 13);
+            write(STDOUT_FILENO, "\x1b[2J", 4);
+            write(STDOUT_FILENO, "\x1b[H", 3);
+            exit(0);
+            break;
+        case ARROW_LEFT:
+        case ARROW_RIGHT:
+        case ARROW_UP:
+        case ARROW_DOWN:
+        case SCREEN_TOP:
+        case SCREEN_CENTER:
+        case SCREEN_BOTTOM:
+        case SCREEN_LEFT:
+        case SCREEN_RIGHT:
+            editorMoveCursor(c);
+            break;
 
-        }
-    }else if(E.mode == INSERT){ 
-        switch(c) {
-            case '\x1b': editorSwitchMode(COMMAND); break;
-        }
-    }else if(E.mode == COMMAND_LINE) {
-        switch(c) {
-            case '\x1b': editorSwitchMode(COMMAND); break;
-        }
     }
-
 }
 
 /*** init ***/
@@ -349,7 +308,6 @@ void editorProcessKeypress() {
 void initEditor() {
     E.cx = 0;
     E.cy = 0;
-    E.mode = COMMAND;
 
     if(getWindowSize(&E.screenrows, &E.screencols) == -1) die("getWindowSize");
 }
