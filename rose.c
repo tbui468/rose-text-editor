@@ -1,7 +1,10 @@
-//Step 54: review this (and maybe a few steps before) to remember what I did
-//don't worry too much about understanding everything, just try to finish the 180 or so steps
-//Step 55: A Line Viewer
-//yep
+//sign into git again to make sure changes can be saved
+//Do ~ 10 steps a day to finish in roughly two weeks
+    //A Text Viewer
+        //Step 55: A Line Viewer - Step 64: 
+    //A Text Editor
+    //Search
+    //Syntax Highlighting
 
 /*** includes ***/
 #include <ctype.h>
@@ -22,40 +25,29 @@ enum editorKey {
     ARROW_RIGHT,
     ARROW_UP,
     ARROW_DOWN,
+    DEL_KEY,
     HOME_KEY,
     END_KEY,
     PAGE_UP,
-    PAGE_DOWN,
-    SCREEN_TOP, 
-    SCREEN_CENTER,
-    SCREEN_BOTTOM,
-    SCREEN_LEFT,
-//    SCREEN_MIDDLE,
-    SCREEN_RIGHT,
-    DEL_KEY
+    PAGE_DOWN
 };
 
 
 /*** data ***/
 struct editorConfig {
-    int mode;
-    int cx, cy;
+    int cx, cy; //cursor location
     int screenrows;
     int screencols;
-    struct termios orig_termios;
+    struct termios orig_termios; //default settings form termios
 };
 
-enum editorMode {
-    COMMAND = 0,
-    INSERT,
-    COMMAND_LINE
-};
 
 struct editorConfig E;
 
 
 /*** terminal ***/
 
+//kill and return 1 (for errors)
 void die(const char* s) {
     write(STDOUT_FILENO, "\x1b[48;2;0;0;0m", 13);
     write(STDOUT_FILENO, "\x1b[2J", 4);
@@ -65,10 +57,12 @@ void die(const char* s) {
     exit(1);
 }
 
+//reset terminal settings (called by atexit in enableRawMode
 void disableRawMode() {
     if(tcsetattr(STDIN_FILENO, TCSAFLUSH, &E.orig_termios) == -1) die("tcsetattr");
 }
 
+//set terminal settings away from default
 void enableRawMode() {
     if(tcgetattr(STDIN_FILENO, &E.orig_termios) == -1) die("tcgetattr");
 
@@ -92,7 +86,7 @@ int editorReadKey() {
         if(nread == -1 && errno != EAGAIN) die("read");
     }
 
-    if(c == '\x1b') {
+    if(c == '\x1b') { //if special character that starts with escape sequence
         char seq[3];
         if(read(STDIN_FILENO, &seq[0], 1) != 1) return '\x1b';
         if(read(STDIN_FILENO, &seq[1], 1) != 1) return '\x1b';
@@ -103,13 +97,12 @@ int editorReadKey() {
                 if(seq[2] == '~') {
                     switch(seq[1]) {
                         case '1': return HOME_KEY; //\x1b[1~
-                        case '2': return HOME_KEY; //\x1b[2~
-                        case '3': return HOME_KEY; 
-                        case '4': return HOME_KEY; 
-                        case '5': return HOME_KEY; 
-                        case '6': return HOME_KEY; 
+                        case '3': return DEL_KEY; //\x1b[2~
+                        case '4': return END_KEY; 
+                        case '5': return PAGE_UP; 
+                        case '6': return PAGE_DOWN; 
                         case '7': return HOME_KEY; 
-                        case '8': return HOME_KEY; 
+                        case '8': return END_KEY; 
                     }
                 }
             }else{
@@ -118,7 +111,7 @@ int editorReadKey() {
                     case 'B': return ARROW_DOWN; //\x1b[B
                     case 'C': return ARROW_RIGHT;  
                     case 'D': return ARROW_LEFT;
-                    case 'E': return HOME_KEY;
+                    case 'H': return HOME_KEY;
                     case 'F': return END_KEY;
                 }
             }
@@ -174,11 +167,11 @@ struct abuf {
 #define ABUF_INIT {NULL, 0}
 
 void abAppend(struct abuf* ab, const char* s, int len) {
-    char* new = realloc(ab->b, ab->len + len);
+    char* new = realloc(ab->b, ab->len + len); //resize with larger size.  New values are not defined
 
     if(!new) return;
 
-    memcpy(&new[ab->len], s, len);
+    memcpy(&new[ab->len], s, len); //append s, so that newly allocated memory (from realloc) is filled with s
     ab->b = new;
     ab->len += len;
 }
@@ -194,6 +187,7 @@ void editorDrawRows(struct abuf* ab) {
     abAppend(ab, "\x1b[48;2;253;246;227m", 19); //set background color (use 38;2 to set foreground color)
     abAppend(ab, "\x1b[38;2;131;148;150m", 19); //set background color (use 38;2 to set foreground color)
 
+    //draw welcome message 1/3 down top of screen
     for(y = 0; y < rows; y++) {
         if(y == rows / 3) {
             char welcome[80];
@@ -228,10 +222,11 @@ void editorDrawRows(struct abuf* ab) {
     abAppend(ab, "\x1b[K", 3);
 }
 
+//draw default screen
 void editorRefreshScreen() {
     struct abuf ab = ABUF_INIT;
 
-    abAppend(&ab, "\x1b[?25l", 6);
+    abAppend(&ab, "\x1b[?25l", 6); //escape sequence followed by commnands + optional parameters
     abAppend(&ab, "\x1b[H", 3);
 
     editorDrawRows(&ab);
@@ -242,7 +237,7 @@ void editorRefreshScreen() {
 
     abAppend(&ab, "\x1b[?25h", 6);
 
-    write(STDOUT_FILENO, ab.b, ab.len);
+    write(STDOUT_FILENO, ab.b, ab.len); //this does the actual drawing to screen using buffer
     abFree(&ab);
 }
 
@@ -262,21 +257,6 @@ void editorMoveCursor(int key) {
         case ARROW_RIGHT: 
             if(E.cx != E.screencols - 1) E.cx++; 
             break;
-        case SCREEN_TOP:
-            E.cy = 0;
-            break;
-        case SCREEN_CENTER:
-            E.cy = (E.screenrows - 1) / 2;
-            break;
-        case SCREEN_BOTTOM:
-            E.cy = E.screenrows - 1;
-            break;
-        case SCREEN_LEFT:
-            E.cx = 0;
-            break;
-        case SCREEN_RIGHT:
-            E.cx = E.screencols - 1;
-            break;
     }
 }
 
@@ -289,15 +269,25 @@ void editorProcessKeypress() {
             write(STDOUT_FILENO, "\x1b[H", 3);
             exit(0);
             break;
+        case HOME_KEY:
+            E.cx = 0;
+            break;
+        case END_KEY:
+            E.cx = E.screencols - 1;
+            break;
+        case PAGE_UP:
+        case PAGE_DOWN: 
+            {
+                int times = E.screenrows;
+                while(times--) {
+                    editorMoveCursor(c = PAGE_UP ? ARROW_UP : ARROW_DOWN);
+                }
+            }
+            break;
         case ARROW_LEFT:
         case ARROW_RIGHT:
         case ARROW_UP:
         case ARROW_DOWN:
-        case SCREEN_TOP:
-        case SCREEN_CENTER:
-        case SCREEN_BOTTOM:
-        case SCREEN_LEFT:
-        case SCREEN_RIGHT:
             editorMoveCursor(c);
             break;
 
